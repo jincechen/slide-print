@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SlidePrint</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1b1d21; --muted: #6b7280; --line: #e3e6eb;
+    --accent: #2f6fde; --accent-hover: #255fc4; --accent-soft: #eaf1fd;
+    --ok: #1f9d55; --warn: #d0342c; --idle: #9aa1ab;
+    --radius: 12px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1d20; --card: #26282c; --text: #eceef1; --muted: #9ba1ab; --line: #363940;
+      --accent: #5b91ef; --accent-hover: #74a3f2; --accent-soft: #2a3448;
+      --ok: #3cc47a; --warn: #f0645c; --idle: #6f7680;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; padding: 22px 24px 14px; gap: 16px;
+    user-select: none; overflow: hidden;
+  }
+  svg.i { width: 1em; height: 1em; fill: currentColor; flex: none; }
+
+  header { display: flex; align-items: center; gap: 12px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; text-wrap: balance; }
+
+  #drop {
+    border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--card);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    padding: 34px 16px; text-align: center; transition: all .15s ease; flex: 1;
+  }
+  #drop .big { font-size: 34px; color: var(--accent); }
+  #drop .hint { color: var(--muted); font-size: 13px; }
+  body.has-files #drop { flex: none; flex-direction: row; padding: 14px 16px; gap: 12px; }
+  body.has-files #drop .big { font-size: 22px; }
+  body.has-files #drop .hint { display: none; }
+  body.dragging #drop { border-color: var(--accent); background: var(--accent-soft); }
+
+  button {
+    font: inherit; border: 0; cursor: pointer; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .primary { background: var(--accent); color: #fff; padding: 8px 16px; font-weight: 600; }
+  .primary:hover { background: var(--accent-hover); }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .ghost { background: transparent; color: var(--muted); padding: 4px 8px; }
+  .ghost:hover { color: var(--text); background: var(--line); }
+  .icon-btn { background: transparent; color: var(--muted); width: 30px; height: 30px; justify-content: center; }
+  .icon-btn:hover { background: var(--line); color: var(--text); }
+
+  #list-wrap { flex: 1; min-height: 0; display: none; flex-direction: column; gap: 8px; }
+  body.has-files #list-wrap { display: flex; }
+  .list-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+  #list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .row {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    display: flex; align-items: center; gap: 12px; padding: 9px 8px 9px 14px;
+  }
+  .row .file { font-size: 18px; color: var(--muted); }
+  .row .body { flex: 1; min-width: 0; }
+  .row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .row .status { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+  .row.ok .status { color: var(--ok); }
+  .row.error .status { color: var(--warn); }
+  .row .actions { display: flex; align-items: center; gap: 2px; }
+  .row .actions .ghost { font-size: 12.5px; gap: 6px; margin-right: 4px; }
+  .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line);
+          border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer { margin-top: auto; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  footer a { color: var(--muted); cursor: pointer; text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%) translateY(8px);
+    background: var(--text); color: var(--bg); padding: 7px 14px; border-radius: 8px; font-size: 13px;
+    opacity: 0; transition: all .2s ease; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>SlidePrint</h1>
+      <div class="sub">Collapse click-through slides into print-ready PDFs.</div>
+    </div>
+  </header>
+
+  <section id="drop">
+    <div class="big" data-icon="file-arrow-up"></div>
+    <div>Drop slide PDFs here</div>
+    <button class="primary" id="choose" disabled><span data-icon="plus"></span>Choose files</button>
+    <div class="hint">You can add several files at once. Originals are not changed.</div>
+  </section>
+
+  <section id="list-wrap">
+    <div class="list-head">
+      <span>Saved next to each original as <b>…_print.pdf</b></span>
+      <button class="ghost" id="clear">Clear list</button>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>
+    <span id="version"></span>
+    <span>© 2026 Jince Chen · <a id="source" title="Source code">Open source</a> · <a id="licences" title="Licences">AGPL-3.0</a></span>
+  </footer>
+  <div id="toast"></div>
+
+<script>
+// Icons: Font Awesome Free 6.7.2 (https://fontawesome.com), CC BY 4.0
+const ICONS = {
+  'arrow-up-right-from-square': ['0 0 512 512', 'M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l82.7 0L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3l0 82.7c0 17.7 14.3 32 32 32s32-14.3 32-32l0-160c0-17.7-14.3-32-32-32L320 0zM80 32C35.8 32 0 67.8 0 112L0 432c0 44.2 35.8 80 80 80l320 0c44.2 0 80-35.8 80-80l0-112c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16L80 448c-8.8 0-16-7.2-16-16l0-320c0-8.8 7.2-16 16-16l112 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 32z'],
+  'circle-check': ['0 0 512 512', 'M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z'],
+  'circle-exclamation': ['0 0 512 512', 'M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24l0 112c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-112c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z'],
+  'circle-minus': ['0 0 512 512', 'M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM184 232l144 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-144 0c-13.3 0-24-10.7-24-24s10.7-24 24-24z'],
+  'copy': ['0 0 448 512', 'M384 336l-192 0c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l140.1 0L400 115.9 400 320c0 8.8-7.2 16-16 16zM192 384l192 0c35.3 0 64-28.7 64-64l0-204.1c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1L192 0c-35.3 0-64 28.7-64 64l0 256c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l192 0c35.3 0 64-28.7 64-64l0-32-48 0 0 32c0 8.8-7.2 16-16 16L64 464c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l32 0 0-48-32 0z'],
+  'file-arrow-up': ['0 0 384 512', 'M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM216 408c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-102.1-31 31c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l72-72c9.4-9.4 24.6-9.4 33.9 0l72 72c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-31-31L216 408z'],
+  'file': ['0 0 384 512', 'M320 464c8.8 0 16-7.2 16-16l0-288-80 0c-17.7 0-32-14.3-32-32l0-80L64 48c-8.8 0-16 7.2-16 16l0 384c0 8.8 7.2 16 16 16l256 0zM0 64C0 28.7 28.7 0 64 0L229.5 0c17 0 33.3 6.7 45.3 18.7l90.5 90.5c12 12 18.7 28.3 18.7 45.3L384 448c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 64z'],
+  'file-pdf': ['0 0 512 512', 'M64 464l48 0 0 48-48 0c-35.3 0-64-28.7-64-64L0 64C0 28.7 28.7 0 64 0L229.5 0c17 0 33.3 6.7 45.3 18.7l90.5 90.5c12 12 18.7 28.3 18.7 45.3L384 304l-48 0 0-144-80 0c-17.7 0-32-14.3-32-32l0-80L64 48c-8.8 0-16 7.2-16 16l0 384c0 8.8 7.2 16 16 16zM176 352l32 0c30.9 0 56 25.1 56 56s-25.1 56-56 56l-16 0 0 32c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-48 0-80c0-8.8 7.2-16 16-16zm32 80c13.3 0 24-10.7 24-24s-10.7-24-24-24l-16 0 0 48 16 0zm96-80l32 0c26.5 0 48 21.5 48 48l0 64c0 26.5-21.5 48-48 48l-32 0c-8.8 0-16-7.2-16-16l0-128c0-8.8 7.2-16 16-16zm32 128c8.8 0 16-7.2 16-16l0-64c0-8.8-7.2-16-16-16l-16 0 0 96 16 0zm80-112c0-8.8 7.2-16 16-16l48 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 32 32 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 48c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-64 0-64z'],
+  'folder-open': ['0 0 576 512', 'M384 480l48 0c11.4 0 21.9-6 27.6-15.9l112-192c5.8-9.9 5.8-22.1 .1-32.1S555.5 224 544 224l-400 0c-11.4 0-21.9 6-27.6 15.9L48 357.1 48 96c0-8.8 7.2-16 16-16l117.5 0c4.2 0 8.3 1.7 11.3 4.7l26.5 26.5c21 21 49.5 32.8 79.2 32.8L416 144c8.8 0 16 7.2 16 16l0 32 48 0 0-32c0-35.3-28.7-64-64-64L298.5 96c-17 0-33.3-6.7-45.3-18.7L226.7 50.7c-12-12-28.3-18.7-45.3-18.7L64 32C28.7 32 0 60.7 0 96L0 416c0 35.3 28.7 64 64 64l23.7 0L384 480z'],
+  'plus': ['0 0 448 512', 'M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 144L48 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l144 0 0 144c0 17.7 14.3 32 32 32s32-14.3 32-32l0-144 144 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-144 0 0-144z'],
+  'rotate-right': ['0 0 512 512', 'M463.5 224l8.5 0c13.3 0 24-10.7 24-24l0-128c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8l119.5 0z'],
+  'xmark': ['0 0 384 512', 'M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z']
+};
+const icon = name => {
+  const [vb, d] = ICONS[name];
+  return `<svg class="i" viewBox="${vb}" aria-hidden="true"><path d="${d}"/></svg>`;
+};
+document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)));
+
+const items = [];          // {path, name, pdf, state: waiting|working|ok|none|error, text, out, report, retry}
+let running = false, nextId = 1;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const api = () => window.pywebview.api;
+
+function addFiles(paths) {
+  for (const path of paths) {
+    const known = items.find(it => it.path.toLowerCase() === path.toLowerCase());
+    if (known && known.state !== 'error' && known.state !== 'ok' && known.state !== 'none') continue;
+    if (known) { Object.assign(known, {state: 'waiting', text: '', report: ''}); continue; }
+    const name = path.split(/[\\/]/).pop();
+    items.push({id: nextId++, path, name, state: 'waiting', pdf: /\.pdf$/i.test(name)});
+  }
+  render();
+  run();
+}
+
+async function run() {
+  if (running) return;
+  running = true;
+  let it;
+  while ((it = items.find(x => x.state === 'waiting'))) {
+    it.state = 'working';
+    render();
+    try {
+      Object.assign(it, await api().process(it.path));
+    } catch (e) {
+      Object.assign(it, {state: 'error', text: 'Something went wrong. Copy the details to report it.', report: String(e), retry: true});
+    }
+    render();
+  }
+  running = false;
+}
+
+const STATUS = {
+  waiting: it => `<span>Waiting…</span>`,
+  working: it => `<span class="spin"></span><span>Working…</span>`,
+  ok:      it => `${icon('circle-check')}<span>${esc(it.text)}</span>`,
+  none:    it => `${icon('circle-minus')}<span>${esc(it.text)}</span>`,
+  error:   it => `${icon('circle-exclamation')}<span>${esc(it.text)}</span>`,
+};
+
+function actions(it) {
+  const b = (act, ic, tip) => `<button class="icon-btn" data-act="${act}" data-id="${it.id}" title="${tip}">${icon(ic)}</button>`;
+  if (it.state === 'ok') return b('open', 'arrow-up-right-from-square', 'Open') + b('folder', 'folder-open', 'Show in folder');
+  if (it.state === 'error') return (it.report ? `<button class="ghost" data-act="copy" data-id="${it.id}">${icon('copy')}Copy details</button>` : '')
+                                 + (it.retry ? b('retry', 'rotate-right', 'Try again') : '')
+                                 + b('remove', 'xmark', 'Remove');
+  if (it.state === 'none') return b('remove', 'xmark', 'Remove');
+  return '';
+}
+
+function render() {
+  document.body.classList.toggle('has-files', items.length > 0);
+  document.getElementById('list').innerHTML = items.map(it => `
+    <li class="row ${it.state}">
+      <span class="file">${icon(it.pdf ? 'file-pdf' : 'file')}</span>
+      <div class="body">
+        <div class="name" title="${esc(it.path)}">${esc(it.name)}</div>
+        <div class="status">${STATUS[it.state](it)}</div>
+      </div>
+      <div class="actions">${actions(it)}</div>
+    </li>`).join('');
+}
+
+document.getElementById('list').addEventListener('click', async e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const it = items.find(x => x.id === Number(btn.dataset.id));
+  if (!it) return;
+  switch (btn.dataset.act) {
+    case 'open':   if (!await api().open_file(it.out)) toast(MOVED); break;
+    case 'folder': if (!await api().show_in_folder(it.out)) toast(MOVED); break;
+    case 'copy':   if (await api().copy(it.report)) toast('Error details copied. Paste them into your message.'); break;
+    case 'retry':  addFiles([it.path]); break;
+    case 'remove': items.splice(items.indexOf(it), 1); render(); break;
+  }
+});
+
+document.getElementById('clear').onclick = () => {
+  for (let k = items.length - 1; k >= 0; k--) if (items[k].state !== 'working' && items[k].state !== 'waiting') items.splice(k, 1);
+  render();
+};
+const MOVED = 'File not found. It may have been moved or deleted.';
+document.getElementById('choose').onclick = async () => addFiles(await api().choose_files());
+document.getElementById('source').onclick = () => api().open_source();
+document.getElementById('licences').onclick = () => api().open_licences();
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// dropping files: the paths come from the Python side (the page only sees file names);
+// capture phase, as the Python-side drop handler stops the event from bubbling
+let depth = 0;
+const dragDone = () => { depth = 0; document.body.classList.remove('dragging'); };
+window.addEventListener('dragenter', e => { e.preventDefault(); depth++; document.body.classList.add('dragging'); }, true);
+window.addEventListener('dragleave', () => { if (--depth <= 0) dragDone(); }, true);
+window.addEventListener('dragover', e => e.preventDefault(), true);
+window.addEventListener('drop', e => { e.preventDefault(); dragDone(); }, true);
+
+window.addEventListener('pywebviewready', async () => {
+  document.getElementById('choose').disabled = false;
+  const info = await api().info();
+  document.getElementById('version').textContent = `Version ${info.version}`;
+  if (info.files.length) addFiles(info.files);
+  if (info.notice) toast(info.notice);
+});
+</script>
+</body>
+</html>

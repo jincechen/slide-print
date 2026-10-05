@@ -35,7 +35,7 @@ Requires PyMuPDF (pip install pymupdf).
 Copyright (C) 2026 Jince Chen
 SPDX-License-Identifier: AGPL-3.0-or-later
 """
-import argparse, json, os, sys
+import argparse, json, os, re, sys
 from collections import Counter
 
 import pymupdf
@@ -152,9 +152,38 @@ def same_slide(doc, i, fa, fb, threshold, visual):
     return True, 'reveal (text + objects)', s
 
 
+def _decode_label(s):
+    """PyMuPDF returns labels stored as hex strings undecoded, e.g. '<FEFF0032>' for '2'."""
+    def text(m):
+        b = bytes.fromhex(m.group(1))
+        if b[:2] == b'\xfe\xff':
+            return b[2:].decode('utf-16-be', 'replace')
+        if b[:3] == b'\xef\xbb\xbf':
+            return b[3:].decode('utf-8', 'replace')
+        try:
+            return b.decode('utf-8')
+        except UnicodeDecodeError:
+            return b.decode('latin-1')
+    return re.sub(r'<((?:[0-9A-Fa-f]{2})+)>', text, s)
+
+
 def page_labels(doc):
     """Each page's label as text ('' where it has none)."""
-    return [p.get_label() for p in doc]
+    return [_decode_label(p.get_label()) for p in doc]
+
+
+def _pdf_text(s):
+    """s as a PDF string: plain ASCII as (...), anything else as UTF-16 hex with byte-order mark."""
+    if all(32 <= ord(c) < 127 for c in s):
+        return '(' + s.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)') + ')'
+    return '<FEFF' + s.encode('utf-16-be').hex().upper() + '>'
+
+
+def set_page_labels(doc, labels):
+    """Label page n with labels[n], verbatim. (PyMuPDF's own writer stores non-ASCII labels
+    as raw UTF-8, which viewers show as hex.)"""
+    nums = ' '.join(f'{n} <</P {_pdf_text(label)}>>' for n, label in enumerate(labels))
+    doc.xref_set_key(doc.pdf_catalog(), 'PageLabels', f'<</Nums [{nums}]>>')
 
 
 def frame_labels(doc):
@@ -209,7 +238,7 @@ def write_output(doc, groups, out):
     for n, rect, target in relink:
         doc[n].insert_link({'kind': pymupdf.LINK_GOTO, 'from': rect, 'page': target})
     if any(labels):
-        doc.set_page_labels([{'startpage': n, 'prefix': labels[p], 'style': ''} for n, p in enumerate(kept)])
+        set_page_labels(doc, [labels[p] for p in kept])
     doc.save(out, garbage=3, deflate=True)
 
 

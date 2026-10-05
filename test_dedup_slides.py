@@ -89,7 +89,7 @@ def test_restarting_page_labels_are_not_frames():
 
 
 def _labelled_deck(raw_labels):
-    """Pages 2-3 are one slide built up in two steps; raw_labels are PDF strings, e.g. '(2)'."""
+    """Pages 2-3 are one slide built up in two steps; raw_labels are PDF strings, e.g. '<FEFF0032>'."""
     doc = pymupdf.open()
     for lines in (['Intro'], ['Point one'], ['Point one', 'Point two'], ['End']):
         p = doc.new_page(width=480, height=270)
@@ -107,20 +107,24 @@ def _write(doc):
         ds.write_output(doc, groups, out)
         res = pymupdf.open(out)
         labels = ds.page_labels(res)
+        raw = res.xref_get_key(res.pdf_catalog(), 'PageLabels')[1]
         res.close()
-    return labels
+    return labels, raw
 
 
-def test_frame_labels_group_pages():
-    doc = _labelled_deck(['(1)', '(2)', '(2)', '(3)'])
-    assert ds.frame_labels(doc) == ['1', '2', '2', '3']
-    assert _write(doc) == ['1', '2', '3']
+def test_hex_page_labels_are_decoded():
+    # many producers store labels as UTF-16 hex strings; they must not come out as '<FEFF0032>'
+    doc = _labelled_deck(['<FEFF0031>', '<FEFF0032>', '<FEFF0032>', '<FEFF0033>'])
+    assert ds.page_labels(doc) == ['1', '2', '2', '3']
+    labels, raw = _write(doc)
+    assert labels == ['1', '2', '3'] and '(2)' in raw and 'FEFF' not in raw
 
 
 def test_other_labels_follow_their_pages():
-    # not frame numbers (roman front matter): each kept page keeps its own label
-    doc = _labelled_deck(['(i)', '(ii)', '(1)', '(2)'])
-    assert _write(doc) == ['i', '1', '2']
+    # not frame numbers (roman front matter, non-ASCII): each kept page keeps its own label
+    doc = _labelled_deck(['(i)', '(ii)', '<FEFF00DC0031>', '(1)'])           # i, ii, Ü1, 1
+    labels, raw = _write(doc)
+    assert labels == ['i', 'Ü1', '1'] and '<FEFF00DC0031>' in raw
 
 
 if __name__ == '__main__':

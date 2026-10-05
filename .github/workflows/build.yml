@@ -1,0 +1,39 @@
+name: Build SlidePrint.exe
+
+# Tests and builds the Windows app on every push and pull request (download it from
+# the run's "Artifacts"), and publishes a GitHub Release with it when a version tag
+# is pushed:  git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write          # to create the release on a tag
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Test
+        run: python test_dedup_slides.py
+      - name: Build
+        run: python -m PyInstaller --onefile --windowed --noconfirm --name SlidePrint --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "ui.html;." slideprint_gui.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SlidePrint
+          path: dist/SlidePrint.exe
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/SlidePrint.exe LICENSE THIRD_PARTY_NOTICES.txt --title "SlidePrint ${{ github.ref_name }}" --generate-notes

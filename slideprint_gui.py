@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """SlidePrint: the window around dedup_slides for people who do not use the
-command line.
+command line. Built into SlidePrint.exe (see README.md).
 
 The window is ui.html shown in the system's web view (Edge WebView2, part of
 Windows 10/11) via pywebview; this file is its Python side. Files can be
-chosen, dropped onto the window, or given on the command line; several at
+chosen, dropped onto the window, or dropped onto SlidePrint.exe; several at
 once, and folders (their PDFs) too. Each print version is saved next to its
 original as <name>_print.pdf, or wherever the user picks if that folder
 cannot be written.
@@ -13,6 +13,9 @@ Copyright (C) 2026 Jince Chen
 SPDX-License-Identifier: AGPL-3.0-or-later
 """
 import ctypes, json, os, platform, subprocess, sys, tempfile, threading, traceback, webbrowser
+
+if sys.stdout is None:                      # windowed .exe: no console to print to
+    sys.stdout = sys.stderr = open(os.devnull, 'w')
 
 import webview
 from webview.dom import DOMEventHandler
@@ -46,8 +49,8 @@ class UserError(Exception):
 
 
 def resource(name):
-    """A file shipped with the app."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+    """A file shipped with the app (inside the .exe when frozen by PyInstaller)."""
+    return os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__))), name)
 
 
 def writable(path):
@@ -195,9 +198,9 @@ class Api:
         webbrowser.open(SOURCE_URL)
 
     def open_licences(self):
-        """SlidePrint's licence as a text file."""
+        """SlidePrint's licence and the bundled software's, as one text file."""
         parts = [f'{APP} {VERSION}, Copyright (C) 2026 Jince Chen. Source code: {SOURCE_URL}\n']
-        for name in ('LICENSE',):
+        for name in ('THIRD_PARTY_NOTICES.txt', 'LICENSE'):
             with open(resource(name), encoding='utf-8') as f:
                 parts.append(f.read())
         path = os.path.join(tempfile.gettempdir(), f'{APP} licences.txt')
@@ -225,7 +228,7 @@ def main():
         if ctypes.windll.user32.MessageBoxW(None, msg, APP, 0x31) == 1:          # MB_OKCANCEL | MB_ICONWARNING
             webbrowser.open(WEBVIEW2_URL)
         return
-    files = expand(sys.argv[1:])                            # files given on the command line
+    files = expand(sys.argv[1:])                            # files dropped onto the .exe icon
     api = Api(files, NO_PDFS if sys.argv[1:] and not files else '')
     with open(resource('ui.html'), encoding='utf-8') as f:
         html = f.read()

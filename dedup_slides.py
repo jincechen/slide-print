@@ -5,8 +5,8 @@ Slide decks exported to PDF (Beamer \pause / \uncover, PowerPoint / Keynote
 builds, ...) have one page per reveal step. This keeps, for every run of
 consecutive pages that build up the same slide, only the last (fullest) page.
 The kept pages are copied as they are -- content streams, fonts and images
-are not re-encoded or rasterised -- and bookmarks that pointed at a dropped
-page are re-pointed to the kept page of its group.
+are not re-encoded or rasterised -- and bookmarks and internal links that
+pointed at a dropped page are re-pointed to the kept page of its group.
 
 Grouping is lossless: page A is dropped only if what is *visible* on it
 (content outside the page box, where Beamer parks hidden overlay material,
@@ -20,6 +20,8 @@ does not count) reappears on the next page B:
     low-resolution render decides whether A's ink is still on B, allowing for
     a vertical shift.
 Pages where content is replaced rather than added (Beamer \only) are kept.
+If every page carries a label and each label is one run of pages (Beamer
+frame numbers), pages with different labels are never merged.
 
   python dedup_slides.py talk.pdf                 -> talk_print.pdf + report
   python dedup_slides.py talk.pdf -o out.pdf --report groups.json
@@ -137,15 +139,34 @@ def same_slide(doc, i, fa, fb, threshold, visual):
     return True, 'reveal (text + objects)', s
 
 
+def page_labels(doc):
+    """Each page's label as text ('' where it has none)."""
+    return [p.get_label() for p in doc]
+
+
+def frame_labels(doc):
+    """Page labels if they look like frame numbers (Beamer): every page labelled, each label
+    one consecutive run of pages, and some run longer than one page. Else None."""
+    labels = page_labels(doc)
+    if not labels or not all(labels):
+        return None
+    runs = [l for k, l in enumerate(labels) if k == 0 or l != labels[k - 1]]
+    return labels if len(runs) == len(set(runs)) and len(runs) < len(labels) else None
+
+
 def group_pages(doc, threshold=0.95, visual='fallback'):
     """Runs of consecutive pages that build up one slide. Returns a list of dicts
     {'pages': [0-based...], 'keep': index, 'links': [scores per merge], 'next': why the run ended}."""
     if len(doc) == 0:
-        return []
+        return [], None
+    labels = frame_labels(doc)
     feats = [page_features(p) for p in doc]
     groups = [{'pages': [0], 'links': []}]
     for i in range(len(doc) - 1):
-        ok, why, s = same_slide(doc, i, feats[i], feats[i + 1], threshold, visual)
+        if labels and labels[i] != labels[i + 1]:
+            ok, why, s = False, 'next frame (page label)', {}
+        else:
+            ok, why, s = same_slide(doc, i, feats[i], feats[i + 1], threshold, visual)
         if ok:
             groups[-1]['pages'].append(i + 1)
             groups[-1]['links'].append(s)
@@ -154,32 +175,43 @@ def group_pages(doc, threshold=0.95, visual='fallback'):
             groups.append({'pages': [i + 1], 'links': []})
     for g in groups:
         g['keep'] = g['pages'][-1]
-    return groups
+    return groups, labels
 
 
 def write_output(doc, groups, out):
     kept = [g['keep'] for g in groups]
+    labels = page_labels(doc)
     new_no = {}                                              # old page -> new page (both 1-based)
     for n, g in enumerate(groups, 1):
         for p in g['pages']:
             new_no[p + 1] = n
     toc = [[lvl, title, new_no.get(page, -1)] for lvl, title, page in doc.get_toc()]
+    # internal links into dropped pages are removed by select(): re-point them to the kept page
+    relink = [(n, link['from'], new_no[link['page'] + 1] - 1) for n, p in enumerate(kept)
+              for link in doc[p].get_links()
+              if link['kind'] in (pymupdf.LINK_GOTO, pymupdf.LINK_NAMED) and link.get('page', -1) >= 0
+              and link['page'] not in kept and link['page'] + 1 in new_no]
     doc.select(kept)
     doc.set_toc(toc)
+    for n, rect, target in relink:
+        doc[n].insert_link({'kind': pymupdf.LINK_GOTO, 'from': rect, 'page': target})
+    if any(labels):
+        doc.set_page_labels([{'startpage': n, 'prefix': labels[p], 'style': ''} for n, p in enumerate(kept)])
     doc.save(out, garbage=3, deflate=True)
 
 
-def report(groups, n_pages):
+def report(groups, labels, n_pages):
     lines = []
     for g in groups:
         a, b = g['pages'][0] + 1, g['pages'][-1] + 1
         rng = f'{a}-{b}' if a != b else f'{a}'
+        lab = f'  [label {labels[g["keep"]]}]' if labels else ''
         if len(g['pages']) > 1:
             t = min(s['text'] for s in g['links'])
             note = f'{len(g["pages"])} states, text⊆ {t:.2f}'
         else:
             note = ''
-        lines.append(f'pages {rng:>7} -> keep {b:>3}  {note}'.rstrip())
+        lines.append(f'pages {rng:>7} -> keep {b:>3}{lab}  {note}'.rstrip())
     moved = [(g['pages'][k] + 1, s['ink']) for g in groups for k, s in enumerate(g['links'])
              if s.get('ink', 1) < INK_MATCH]
     if moved:
@@ -188,6 +220,14 @@ def report(groups, n_pages):
                      + ', '.join(f'{p}->{p + 1} (ink⊆ {v:.3f})' for p, v in moved))
     kept = len(groups)
     lines.append(f'{n_pages} pages -> {kept} pages ({n_pages - kept} removed)')
+    if labels:
+        split = [g for g in groups if 'next' in g and not g['next'][0].startswith('next frame')]
+        split = [g for g in split if labels[g['keep']] == labels[g['keep'] + 1]]
+        frames = len(dict.fromkeys(labels))
+        lines.append(f'page labels: {frames} frames; ' + (
+            'every frame collapsed to one page' if not split else
+            f'{len(split)} kept as several pages because content is replaced, not added: '
+            + ', '.join(f'{g["keep"] + 1}|{g["keep"] + 2} ({g["next"][0]})' for g in split)))
     return '\n'.join(lines)
 
 
@@ -208,14 +248,15 @@ def main():
 
     doc = pymupdf.open(args.pdf)
     n_pages = len(doc)
-    groups = group_pages(doc, args.threshold, args.visual)
+    groups, labels = group_pages(doc, args.threshold, args.visual)
     if not groups:
         sys.exit(f'{args.pdf}: no pages')
-    print(report(groups, n_pages))
+    print(report(groups, labels, n_pages))
     if args.report:
         with open(args.report, 'w', encoding='utf-8') as f:
             json.dump([{'pages': [p + 1 for p in g['pages']], 'keep': g['keep'] + 1,
-                        'merge_scores': g['links'], 'split_from_next': g.get('next', (None,))[0]} for g in groups],
+                        'label': labels[g['keep']] if labels else None, 'merge_scores': g['links'],
+                        'split_from_next': g.get('next', (None,))[0]} for g in groups],
                       f, indent=1, ensure_ascii=False)
     if not args.dry_run:
         out = args.output or os.path.splitext(args.pdf)[0] + '_print.pdf'

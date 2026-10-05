@@ -27,7 +27,9 @@ jobs:
       - name: Test
         run: python test_dedup_slides.py
       - name: Build
-        run: python -m PyInstaller --onefile --windowed --noconfirm --name SlidePrint --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "ui.html;." slideprint_gui.py
+        env:
+          ICONSET: layers          # icon set to ship: a folder in icons/
+        run: python -m PyInstaller --onefile --windowed --splash "icons/$env:ICONSET/splash.png" --manifest app.manifest --noconfirm --name SlidePrint --icon "icons/$env:ICONSET/icon.ico" --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "icons/$env:ICONSET/icon.ico;." --add-data "icons/$env:ICONSET/logo.png;." --add-data "ui.html;." slideprint_gui.py
       - uses: actions/upload-artifact@v4
         with:
           name: SlidePrint

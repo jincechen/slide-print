@@ -12,7 +12,7 @@ cannot be written.
 Copyright (C) 2026 Jince Chen
 SPDX-License-Identifier: AGPL-3.0-or-later
 """
-import ctypes, json, os, platform, subprocess, sys, tempfile, threading, traceback, webbrowser
+import base64, ctypes, json, os, platform, subprocess, sys, tempfile, threading, traceback, webbrowser
 
 if sys.stdout is None:                      # windowed .exe: no console to print to
     sys.stdout = sys.stderr = open(os.devnull, 'w')
@@ -51,6 +51,14 @@ class UserError(Exception):
 def resource(name):
     """A file shipped with the app (inside the .exe when frozen by PyInstaller)."""
     return os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__))), name)
+
+
+def icon_file(name):
+    """icon.ico / logo.png of the icon set: the one bundled into the .exe (build.bat ICONSET),
+    or, run from source, icons/<SLIDEPRINT_ICONSET or layers>/."""
+    if hasattr(sys, '_MEIPASS'):
+        return resource(name)
+    return resource(os.path.join('icons', os.environ.get('SLIDEPRINT_ICONSET', 'layers'), name))
 
 
 def writable(path):
@@ -209,8 +217,18 @@ class Api:
         os.startfile(path)
 
 
+def close_splash():
+    """Close the "Starting..." card that SlidePrint.exe shows while it unpacks (exe only)."""
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except ImportError:
+        pass
+
+
 def on_shown():
-    """Window is up: load the PDF code in the background."""
+    """Window is up: close the splash and load the PDF code in the background."""
+    close_splash()
     threading.Thread(target=lib, daemon=True).start()
 
 
@@ -222,6 +240,7 @@ def has_webview2():
 
 def main():
     if not has_webview2():
+        close_splash()
         msg = ('SlidePrint needs Microsoft Edge WebView2, which is missing on this PC.\n\n'
                'Click OK to open the Microsoft download page. Install the "Evergreen Bootstrapper", '
                'then start SlidePrint again.')
@@ -232,6 +251,8 @@ def main():
     api = Api(files, NO_PDFS if sys.argv[1:] and not files else '')
     with open(resource('ui.html'), encoding='utf-8') as f:
         html = f.read()
+    with open(icon_file('logo.png'), 'rb') as f:
+        html = html.replace('{{LOGO}}', 'data:image/png;base64,' + base64.b64encode(f.read()).decode())
     window = webview.create_window(APP, html=html, js_api=api, width=580, height=640, min_size=(460, 480),
                                    background_color='#f6f7f9')
     api._window = window
@@ -250,7 +271,7 @@ def main():
 
     window.events.loaded += bind
     window.events.shown += on_shown
-    webview.start()
+    webview.start(icon=icon_file('icon.ico'))
 
 
 if __name__ == '__main__':

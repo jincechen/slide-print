@@ -11,14 +11,14 @@ pointed at a dropped page are re-pointed to the kept page of its group.
 Grouping is lossless: page A is dropped only if what is *visible* on it
 (content outside the page box, where Beamer parks hidden overlay material,
 does not count) reappears on the next page B:
-  * text: at least 95% of the words of A are words of B, and the title band
-    (top of the page) is unchanged;
-  * graphics: A's vector paths all reappear on B, compared by kind, colours
-    and size but not position (frames re-centre vertically as content is
-    added); only plain filled boxes may change size (a box growing around new
-    content). A's raster images reappear on B (by content digest); if not, a
-    low-resolution render decides whether A's ink is still on B, allowing for
-    a vertical shift.
+  * text: the words of A are (almost all) words of B -- at least 95% and at
+    most 3 missing -- and the title band (top of the page) is unchanged;
+  * graphics: A's lines and curves all reappear on B, compared by kind,
+    colours, size and outline but not position (frames re-centre vertically
+    as content is added); only plain filled boxes may change size (a box
+    growing around new content). A's raster images reappear on B (by content
+    digest); if not, a low-resolution render decides whether A's ink is still
+    on B, allowing for a vertical shift.
 Pages where content is replaced rather than added (Beamer \only) are kept.
 If every page carries a label and each label is one run of pages (Beamer
 frame numbers), pages with different labels are never merged.
@@ -43,6 +43,7 @@ import pymupdf
 TITLE_BAND = 0.15       # top fraction of the page that holds the slide title
 IMAGES_MIN = 0.9        # share of A's raster images (by digest) that must reappear on B
 BOX_SLACK = 0.1         # filled boxes of A allowed to be missing from B (resized): 1 + this share of A's paths
+MAX_MISSING_WORDS = 3   # however long the page, at most this many of A's words may be missing from B
 RENDER_DPI = 40
 MAX_SHIFT = 0.35        # vertical shift (share of page height) tried by the render check
 INK_MATCH = 0.97        # share of A's ink pixels that must be unchanged on B
@@ -72,10 +73,22 @@ def page_features(page):
 
 
 def _shape(d, r):
-    """A path's kind, colours and size, but not where it sits on the page (frames
-    re-centre vertically as content is added)."""
+    """A path's kind, colours, size and outline, but not where it sits on the page (frames
+    re-centre vertically as content is added). The outline is the path's points relative
+    to its own box, to 5%, so two different curves in the same box do not match."""
+    w, h = r.width or 1, r.height or 1
+    pts = []
+    for item in d['items']:
+        for x in item[1:]:
+            if isinstance(x, pymupdf.Point):
+                pts.append(x)
+            elif isinstance(x, pymupdf.Rect):
+                pts += [x.tl, x.br]
+            elif isinstance(x, pymupdf.Quad):
+                pts += [x.ul, x.ur, x.ll, x.lr]
+    outline = tuple((round((p.x - r.x0) / w * 20), round((p.y - r.y0) / h * 20)) for p in pts)
     box = d['type'] == 'f' and all(item[0] == 're' for item in d['items'])  # plain background box
-    return (d['type'], _col(d.get('fill')), _col(d.get('color')), round(r.width), round(r.height), box)
+    return (d['type'], _col(d.get('fill')), _col(d.get('color')), round(r.width), round(r.height), outline, box)
 
 
 def _col(c):
@@ -123,7 +136,7 @@ def same_slide(doc, i, fa, fb, threshold, visual):
          'shapes_missing': sum(gone.values()), 'shapes': n_shapes,
          'images': round(containment(fa['images'], fb['images']), 3),
          'xobj_reuse': round(containment(fa['xobjs'], fb['xobjs']), 3)}
-    if text < threshold:
+    if text < threshold or s['words_missing'] > MAX_MISSING_WORDS:
         return False, f"text replaced (text⊆ {text:.2f}, {s['words_missing']} words gone)", s
     if fa['title'] and fb['title'] and fa['title'] != fb['title']:
         return False, 'title changed', s

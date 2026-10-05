@@ -52,6 +52,33 @@ def test_grouping_and_output():
         res.close()
 
 
+def _groups(doc):
+    doc = pymupdf.open('pdf', doc.tobytes())
+    return [[p + 1 for p in g['pages']] for g in ds.group_pages(doc)[0]]
+
+
+def test_swapped_curve_is_kept():
+    # same axes and same curve box, different curve (a figure swapped with \only): keep both
+    doc = pymupdf.open()
+    for ys in ([200, 150, 120, 100], [100, 180, 110, 200]):
+        p = doc.new_page(width=480, height=270)
+        p.insert_text((20, 30), 'Results', fontsize=18)
+        p.draw_rect(pymupdf.Rect(60, 90, 420, 210), color=(0, 0, 0))
+        p.draw_polyline([pymupdf.Point(80 + 100 * k, y) for k, y in enumerate(ys)], color=(0, 0, 1))
+    assert _groups(doc) == [[1], [2]]
+
+
+def test_changed_numbers_on_dense_page_are_kept():
+    # 9 of ~200 words change: under 5%, but more than a handful, so keep both
+    words = [f'w{k}' for k in range(190)] + [str(k) for k in range(9)]
+    doc = pymupdf.open()
+    for nums in (range(9), range(100, 109)):
+        p = doc.new_page(width=480, height=270)
+        text = ' '.join(words[:190] + [str(k) for k in nums])
+        p.insert_textbox(pymupdf.Rect(10, 40, 470, 260), text, fontsize=6)
+    assert _groups(doc) == [[1], [2]]
+
+
 def test_restarting_page_labels_are_not_frames():
     doc = pymupdf.open()
     for _ in range(6):

@@ -4,17 +4,21 @@ Slide PDFs often turn every click into a separate page. SlidePrint removes those
 
 Your original file is never changed.
 
+<img src="docs/screenshot.png" alt="SlidePrint showing page counts and saved results for example PDFs" width="580">
+
 ## Using it
 
-1. Download **SlidePrint.exe** from the [latest release](https://github.com/jincechen/slide-print/releases/latest). No installation is needed.
-2. Open it and drop in one or more PDFs. You can also drop a folder to process every PDF inside it, or drop files directly onto `SlidePrint.exe`.
-3. Each result is saved next to the original as `<name>_print.pdf`.
+1. Download **SlidePrint.exe** from the [latest release](https://github.com/jincechen/slide-print/releases/latest) for Windows 10 or 11. No installation is needed.
+2. Open it and click **Choose files** to select one or more PDFs, or drop them into the window. Processing starts automatically.
+3. Each result is saved next to the original: `talk.pdf` becomes `talk_print.pdf`. Use the **Open** or **Show in folder** icons beside the result to find it.
 
-If something goes wrong, click **Copy details** next to the file and include that text when you [open an issue](https://github.com/jincechen/slide-print/issues).
+You can also drop a folder to process the PDFs directly inside it, or drop files directly onto `SlidePrint.exe`.
+
+The first time you run SlidePrint, Windows may show *“Windows protected your PC”* because the app is unsigned. Click **More info → Run anyway**.
 
 SlidePrint requires Microsoft Edge WebView2, which is already included with Windows 11 and normally comes with Edge on Windows 10.
 
-The first time you run SlidePrint, Windows may show *“Windows protected your PC”* because the app is unsigned. Click **More info → Run anyway**.
+If something goes wrong, click **Copy details** next to the file and include that text when you [open an issue](https://github.com/jincechen/slide-print/issues).
 
 ## How it works
 
@@ -33,31 +37,32 @@ Password-protected PDFs need to be unlocked first.
 
 ## Running from source
 
-Install the dependencies:
+To run the Windows app from source, install Python 3.12 and open a terminal in the project folder. Install the dependencies:
 
-```bash
-pip install -r requirements.txt
+```powershell
+python -m pip install -r requirements.txt
 ```
 
 Run the app:
 
-```bash
+```powershell
 python slideprint_gui.py
 ```
 
 The core PDF processor can also be used directly:
 
-```bash
+```powershell
 python dedup_slides.py talk.pdf
 ```
 
-Some useful options:
+Choose a different output name, or preview which pages would be kept without writing a PDF:
 
-```bash
+```powershell
 python dedup_slides.py talk.pdf -o out.pdf
 python dedup_slides.py talk.pdf --dry-run
-python test_dedup_slides.py
 ```
+
+To run the tests: `python test_dedup_slides.py`.
 
 The main files are:
 
@@ -70,10 +75,10 @@ The main files are:
 
 ## Building
 
-Run:
+On Windows, with Python 3.12 on your PATH, run:
 
-```bash
-build.bat
+```powershell
+.\build.bat
 ```
 
 This produces:

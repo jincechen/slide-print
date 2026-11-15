@@ -1,30 +1,25 @@
 # SlidePrint
 
-Slide PDFs often turn every click into a separate page. SlidePrint removes those intermediate build-up pages and keeps the complete version of each slide, making the PDF much easier to print or read.
+Slide PDFs often contain a separate page for every animation step. If you have the original LaTeX or PowerPoint file, you can simply export a clean version. But what if all you have is the PDF?
 
-Your original file is never changed.
+SlidePrint removes intermediate build-up pages and keeps only the complete version of each slide, making the PDF easier to print and read. Your original file is never changed.
 
-<img src="docs/screenshot.png" alt="SlidePrint showing page counts and saved results for example PDFs" width="580">
+<img src="docs/screenshot.png" alt="SlidePrint showing page counts and saved results for example PDFs" width="480">
 
 ## Using it
 
 1. Download SlidePrint from the [latest release](https://github.com/jincechen/slide-print/releases/latest):
-   - **Windows 10 or 11:** `SlidePrint-<version>-windows-x86_64.exe`. No installation is needed.
-   - **macOS 11 or later:** `SlidePrint-<version>-macos-arm64.dmg` for Macs with Apple silicon (M1 or later), or `SlidePrint-<version>-macos-x86_64.dmg` for Intel Macs. **Apple menu → About This Mac** shows which you have. Open the `.dmg` and drag SlidePrint into Applications.
+   - **Windows 10 or 11:** `...windows-x86_64.exe`. No installation is needed.
+   - **macOS 11 or later:** `...macos-arm64.dmg` for Macs with Apple silicon (M1 or later), or `...macos-x86_64.dmg` for Intel Macs. Open the `.dmg` and drag SlidePrint into Applications.
 2. Open it and click **Choose files** to select one or more PDFs, or drop them into the window. Processing starts automatically.
-3. Each result is saved next to the original: `talk.pdf` becomes `talk_print.pdf`. Use the **Open** or **Show in folder** (on a Mac, **Show in Finder**) icons beside the result to find it.
+3. Each result is saved next to the original: `talk.pdf` -> `talk_print.pdf`.
 
-You can also drop a folder to process the PDFs directly inside it, or drop files directly onto the SlidePrint `.exe` file. On a Mac, drop them onto SlidePrint in the Dock or the Finder, or Control-click a PDF and choose **Open With → SlidePrint**.
+You can also drop folders into SlidePrint, or drop PDFs directly onto the app (the `.exe` on Windows, or the Dock/Finder icon on macOS). On macOS, you can also use Open With → SlidePrint.
 
-### The first time
+Since SlidePrint is not yet code-signed or notarized, you may see a warning when launching it for the first time:
 
-On Windows, SlidePrint may show *“Windows protected your PC”* because the app is unsigned. Click **More info → Run anyway**.
-
-SlidePrint requires Microsoft Edge WebView2, which is already included with Windows 11 and normally comes with Edge on Windows 10.
-
-On a Mac, macOS says that it could not verify SlidePrint, because the app is not notarised by Apple. Click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to the message about SlidePrint. On macOS 14 or earlier, you can instead Control-click SlidePrint in Applications and choose **Open**.
-
-macOS may also ask whether SlidePrint can access files in your Desktop, Documents or Downloads folder. Allow it so that results can be saved next to the originals; otherwise SlidePrint asks where to save each one.
+- **Windows:** If you see *“Windows protected your PC”*, click **More info → Run anyway**.
+- **macOS:** If you see *“Apple could not verify SlidePrint is free of malware”*, go to **System Settings → Privacy & Security → Open Anyway**. Allow file access when prompted.
 
 If something goes wrong, click **Copy details** next to the file and include that text when you [open an issue](https://github.com/jincechen/slide-print/issues).
 
@@ -45,29 +40,29 @@ Password-protected PDFs need to be unlocked first.
 
 ## Running from source
 
-To run the app from source, install Python 3.12 and open a terminal in the project folder. Install the dependencies:
+To run the app from source, install Python 3.12 and open a terminal in the project folder. Use `python` on Windows or `python3` on macOS for the commands below.
 
-```powershell
+Install the dependencies:
+
+```sh
 python -m pip install -r requirements.txt
 ```
 
 Run the app:
 
-```powershell
+```sh
 python -m slideprint
 ```
 
-On a Mac, type `python3` instead of `python`.
-
 The core PDF processor can also be used directly:
 
-```powershell
+```sh
 python -m slideprint.dedup talk.pdf
 ```
 
 Choose a different output name, or preview which pages would be kept without writing a PDF:
 
-```powershell
+```sh
 python -m slideprint.dedup talk.pdf -o out.pdf
 python -m slideprint.dedup talk.pdf --dry-run
 ```
@@ -91,7 +86,9 @@ icons/                app icons, and the script that draws them
 
 ## Building
 
-On Windows, with Python 3.12 on your PATH, run:
+### Windows
+
+With Python 3.12 on your PATH, run:
 
 ```powershell
 .\packaging\windows\build.bat
@@ -103,7 +100,9 @@ This produces:
 dist\SlidePrint.exe
 ```
 
-On a Mac, with Python 3.12 on your PATH as `python3.12` (from [python.org](https://www.python.org/downloads/macos/) or Homebrew), run:
+### macOS
+
+With Python 3.12 on your PATH as `python3.12` (from [python.org](https://www.python.org/downloads/macos/) or Homebrew), run:
 
 ```sh
 ./packaging/macos/build.sh
@@ -116,7 +115,7 @@ dist/SlidePrint.app
 dist/SlidePrint.dmg
 ```
 
-The GitHub Actions workflow also builds the apps automatically (Windows, and macOS for both Apple silicon and Intel) and publishes a release when you push a version tag such as `v1.0.0`, with the notes from `CHANGELOG.md`.
+The GitHub Actions workflow also builds the apps automatically (Windows, macOS Apple silicon, and macOS Intel) and publishes a release when you push a version tag such as `v1.0.0`, with the notes from `CHANGELOG.md`.
 
 ## Licence
 

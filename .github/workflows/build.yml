@@ -116,7 +116,7 @@ jobs:
           | macOS 11 or later, Apple silicon (M1 and later) | [SlidePrint-$version-macos-arm64.dmg]($get-macos-arm64.dmg) |
           | macOS 11 or later, Intel | [SlidePrint-$version-macos-x86_64.dmg]($get-macos-x86_64.dmg) |
 
-          No installation is needed on Windows. On a Mac, open the \`.dmg\` and drag SlidePrint into Applications. The apps are not signed by Microsoft or notarised by Apple, so opening them the first time takes an extra step: see [The first time]($url#the-first-time). \`SHA256SUMS.txt\` lists the SHA-256 checksums of the files.
+          No installation is needed on Windows. On a Mac, open the \`.dmg\` and drag SlidePrint into Applications. The apps are not yet code-signed or notarized, so opening them the first time takes an extra step: see [Using it]($url#using-it). \`SHA256SUMS.txt\` lists the SHA-256 checksums of the files.
 
           **Full changelog**: $(sed -n "s/^\[$version\]: //p" CHANGELOG.md)
           EOF

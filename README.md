@@ -54,7 +54,7 @@ python -m pip install -r requirements.txt
 Run the app:
 
 ```powershell
-python slideprint_gui.py
+python -m slideprint
 ```
 
 On a Mac, type `python3` instead of `python`.
@@ -62,34 +62,39 @@ On a Mac, type `python3` instead of `python`.
 The core PDF processor can also be used directly:
 
 ```powershell
-python dedup_slides.py talk.pdf
+python -m slideprint.dedup talk.pdf
 ```
 
 Choose a different output name, or preview which pages would be kept without writing a PDF:
 
 ```powershell
-python dedup_slides.py talk.pdf -o out.pdf
-python dedup_slides.py talk.pdf --dry-run
+python -m slideprint.dedup talk.pdf -o out.pdf
+python -m slideprint.dedup talk.pdf --dry-run
 ```
 
-To run the tests: `python test_dedup_slides.py`.
+To run the tests: `python tests/test_dedup.py`.
 
-The main files are:
+The project is laid out as follows:
 
-- `dedup_slides.py` — finds build-up pages and writes the print version
-- `slideprint_gui.py` — Python side of the app (Windows and macOS)
-- `ui.html` — app interface
-- `test_dedup_slides.py` — basic tests
-- `build.bat` — builds `SlidePrint.exe` on Windows
-- `build.sh` and `slideprint-macos.spec` — build `SlidePrint.app` on macOS
-- `.github/workflows/build.yml` — tests, builds, and publishes releases
+```text
+slideprint/           the program
+  dedup.py            finds build-up pages and writes the print version
+  gui.py              Python side of the app (Windows and macOS)
+  ui.html             app interface
+tests/                basic tests
+packaging/
+  windows/            builds SlidePrint.exe
+  macos/              builds SlidePrint.app
+icons/                app icons, and the script that draws them
+.github/workflows/    tests, builds, and publishes releases
+```
 
 ## Building
 
 On Windows, with Python 3.12 on your PATH, run:
 
 ```powershell
-.\build.bat
+.\packaging\windows\build.bat
 ```
 
 This produces:
@@ -101,7 +106,7 @@ dist\SlidePrint.exe
 On a Mac, with Python 3.12 on your PATH as `python3.12` (from [python.org](https://www.python.org/downloads/macos/) or Homebrew), run:
 
 ```sh
-./build.sh
+./packaging/macos/build.sh
 ```
 
 This produces the app and a disk image to share it with, both for the Mac's own processor (Apple silicon or Intel):
@@ -111,7 +116,7 @@ dist/SlidePrint.app
 dist/SlidePrint.dmg
 ```
 
-The GitHub Actions workflow also builds the apps automatically (Windows, and macOS for both Apple silicon and Intel) and publishes a release when you push a version tag such as `v1.0.0`.
+The GitHub Actions workflow also builds the apps automatically (Windows, and macOS for both Apple silicon and Intel) and publishes a release when you push a version tag such as `v1.0.0`, with the notes from `CHANGELOG.md`.
 
 ## Licence
 

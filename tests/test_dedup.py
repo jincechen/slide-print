@@ -1,8 +1,10 @@
-"""Smoke test on a generated deck (python test_dedup_slides.py, or pytest)."""
-import os, tempfile
+"""Smoke test on a generated deck (python tests/test_dedup.py, or pytest)."""
+import os, sys, tempfile
 
 import pymupdf
-import dedup_slides as ds
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))     # the repository
+from slideprint import dedup as ds
 
 
 def _image(rgb):

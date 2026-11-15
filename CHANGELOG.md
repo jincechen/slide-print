@@ -15,6 +15,7 @@ SlidePrint now also runs on macOS, with the same window and features as on Windo
 ### Changed
 
 - Download file names include the version, system and processor, for example `SlidePrint-1.1.0-windows-x86_64.exe`.
+- Run from source, the app starts with `python -m slideprint` and the command-line tool with `python -m slideprint.dedup`.
 
 ## [1.0.0] - 2026-10-06
 

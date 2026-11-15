@@ -3,7 +3,7 @@ name: Build SlidePrint
 # Tests and builds the Windows and macOS apps on every push and pull request (download
 # them from the run's "Artifacts"). When a version tag is pushed, also publishes a GitHub
 # Release with them, its notes taken from that version's section of CHANGELOG.md:
-#   git tag v1.1.0 && git push origin v1.1.0      (the tag must match VERSION in slideprint_gui.py)
+#   git tag v1.1.0 && git push origin v1.1.0      (the tag must match __version__ in slideprint/__init__.py)
 on:
   push:
     branches: ['**']
@@ -26,14 +26,14 @@ jobs:
       - name: Install
         run: python -m pip install -r requirements.txt -r requirements-build.txt
       - name: Test
-        run: python test_dedup_slides.py
+        run: python tests/test_dedup.py
       - name: Build
         env:
           ICONSET: layers          # icon set to ship: a folder in icons/
-        run: python -m PyInstaller --onefile --windowed --splash "icons/$env:ICONSET/splash.png" --manifest app.manifest --noconfirm --name SlidePrint --icon "icons/$env:ICONSET/icon.ico" --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "icons/$env:ICONSET/icon.ico;." --add-data "icons/$env:ICONSET/logo.png;." --add-data "ui.html;." slideprint_gui.py
+        run: python -m PyInstaller --onefile --windowed --splash "icons/$env:ICONSET/splash.png" --manifest packaging/windows/app.manifest --noconfirm --name SlidePrint --icon "icons/$env:ICONSET/icon.ico" --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "icons/$env:ICONSET/icon.ico;." --add-data "icons/$env:ICONSET/logo.png;." --add-data "slideprint/ui.html;." --paths . slideprint/__main__.py
       - name: Name
         shell: bash
-        run: mv dist/SlidePrint.exe "dist/SlidePrint-$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)-windows-x86_64.exe"
+        run: mv dist/SlidePrint.exe "dist/SlidePrint-$(sed -n "s/^__version__ = '\(.*\)'$/\1/p" slideprint/__init__.py)-windows-x86_64.exe"
       - uses: actions/upload-artifact@v4
         with:
           name: SlidePrint-windows-x86_64
@@ -60,17 +60,17 @@ jobs:
       - name: Install
         run: python -m pip install -r requirements.txt -r requirements-build.txt
       - name: Test
-        run: python test_dedup_slides.py
+        run: python tests/test_dedup.py
       - name: Build
         env:
           ICONSET: layers          # icon set to ship: a folder in icons/
           # stop, rather than make an app that macOS says is damaged, if signing it (ad hoc) goes wrong
           PYINSTALLER_STRICT_BUNDLE_CODESIGN_ERROR: '1'
           PYINSTALLER_VERIFY_BUNDLE_SIGNATURE: '1'
-        run: python -m PyInstaller --noconfirm slideprint-macos.spec
+        run: python -m PyInstaller --noconfirm packaging/macos/SlidePrint.spec
       - name: Disk image
         run: |
-          dmg="dist/SlidePrint-$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)-macos-${{ matrix.arch }}.dmg"
+          dmg="dist/SlidePrint-$(sed -n "s/^__version__ = '\(.*\)'$/\1/p" slideprint/__init__.py)-macos-${{ matrix.arch }}.dmg"
           mkdir -p build/dmg
           ditto dist/SlidePrint.app build/dmg/SlidePrint.app
           ln -s /Applications build/dmg/Applications
@@ -99,8 +99,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          version=$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)
-          [ "$TAG" = "v$version" ] || { echo "::error::Tag $TAG does not match VERSION $version in slideprint_gui.py"; exit 1; }
+          version=$(sed -n "s/^__version__ = '\(.*\)'$/\1/p" slideprint/__init__.py)
+          [ "$TAG" = "v$version" ] || { echo "::error::Tag $TAG does not match __version__ $version in slideprint/__init__.py"; exit 1; }
           # notes: this version's section of CHANGELOG.md, then where to get what
           awk -v h="## [$version]" 'index($0, h) == 1 {f = 1; next} /^## \[|^\[[^]]*\]: / {f = 0} f' CHANGELOG.md | sed '/./,$!d' > notes.md
           grep -q . notes.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }

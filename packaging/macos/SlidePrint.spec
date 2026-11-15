@@ -1,7 +1,8 @@
 # PyInstaller spec for SlidePrint.app, the macOS app (the Windows .exe is built from the
-# command line, in build.bat). Used by build.sh and the workflow:
+# command line, in packaging/windows/build.bat). Used by build.sh and the workflow, from
+# the repository's top folder:
 #
-#   ICONSET=layers python -m PyInstaller --noconfirm slideprint-macos.spec
+#   ICONSET=layers python -m PyInstaller --noconfirm packaging/macos/SlidePrint.spec
 #
 # A spec rather than command-line options because the app's Info.plist needs keys that
 # PyInstaller has no options for (accepting PDFs and folders dropped onto the app, etc.).
@@ -9,15 +10,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import os, re
 
-ICONSET = os.environ.get('ICONSET', 'layers')          # icon set to ship: a folder in icons/
-with open(os.path.join(SPECPATH, 'slideprint_gui.py'), encoding='utf-8') as f:
-    VERSION = re.search(r"^VERSION = '(.+)'", f.read(), re.M).group(1)
+ROOT = os.path.abspath(os.path.join(SPECPATH, '..', '..'))
+ICONS = os.path.join(ROOT, 'icons', os.environ.get('ICONSET', 'layers'))     # icon set to ship: a folder in icons/
+with open(os.path.join(ROOT, 'slideprint', '__init__.py'), encoding='utf-8') as f:
+    VERSION = re.search(r"^__version__ = '(.+)'", f.read(), re.M).group(1)
 SAVE_NEXT = 'SlidePrint saves the print version of a PDF next to the original.'
 
 a = Analysis(
-    ['slideprint_gui.py'],
-    datas=[('LICENSE', '.'), ('THIRD_PARTY_NOTICES.txt', '.'), ('ui.html', '.'),
-           (f'icons/{ICONSET}/logo.png', '.')],
+    [os.path.join(ROOT, 'slideprint', '__main__.py')],
+    pathex=[ROOT],
+    datas=[(os.path.join(ROOT, 'LICENSE'), '.'), (os.path.join(ROOT, 'THIRD_PARTY_NOTICES.txt'), '.'),
+           (os.path.join(ROOT, 'slideprint', 'ui.html'), '.'), (os.path.join(ICONS, 'logo.png'), '.')],
     excludes=['pyi_splash'],                            # no start-up splash on macOS
 )
 pyz = PYZ(a.pure)
@@ -26,7 +29,7 @@ coll = COLLECT(exe, a.binaries, a.datas, name='SlidePrint')
 app = BUNDLE(
     coll,
     name='SlidePrint.app',
-    icon=f'icons/{ICONSET}/icon.icns',
+    icon=os.path.join(ICONS, 'icon.icns'),
     bundle_identifier='io.github.jincechen.slideprint',
     version=VERSION,
     info_plist={

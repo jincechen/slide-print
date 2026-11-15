@@ -23,10 +23,10 @@ Pages where content is replaced rather than added (Beamer \only) are kept.
 If every page carries a label and each label is one run of pages (Beamer
 frame numbers), pages with different labels are never merged.
 
-  python dedup_slides.py talk.pdf                 -> talk_print.pdf + report
-  python dedup_slides.py talk.pdf -o out.pdf --report groups.json
-  python dedup_slides.py talk.pdf --dry-run       report only
-  python dedup_slides.py talk.pdf --visual check
+  python -m slideprint.dedup talk.pdf                 -> talk_print.pdf + report
+  python -m slideprint.dedup talk.pdf -o out.pdf --report groups.json
+  python -m slideprint.dedup talk.pdf --dry-run       report only
+  python -m slideprint.dedup talk.pdf --visual check
         also render every merged pair and list those whose ink moved or changed
         (for eyeballing; does not change the grouping)
 
@@ -274,7 +274,8 @@ def report(groups, labels, n_pages):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(prog='python -m slideprint.dedup', description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('pdf')
     ap.add_argument('-o', '--output', help='output PDF (default: <input>_print.pdf)')
     ap.add_argument('--report', help='also write the grouping as JSON here')

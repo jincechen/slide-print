@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
-"""SlidePrint: the window around dedup_slides for people who do not use the
-command line. Built into SlidePrint.exe on Windows and SlidePrint.app on macOS
-(see README.md).
+"""SlidePrint: the window around dedup for people who do not use the command
+line (python -m slideprint). Built into SlidePrint.exe on Windows and
+SlidePrint.app on macOS (see README.md).
 
 The window is ui.html shown in the system's web view (Edge WebView2, part of
 Windows 10/11; WKWebView, part of macOS) via pywebview; this file is its
@@ -22,9 +21,12 @@ if sys.stdout is None:                      # windowed .exe / .app: no console t
 import webview
 from webview.dom import DOMEventHandler
 
+from slideprint import __version__ as VERSION
+
 MAC = sys.platform == 'darwin'
 APP = 'SlidePrint'
-VERSION = '1.0.0'
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)                    # the repository, when run from source
 SOURCE_URL = 'https://github.com/jincechen/slide-print'      # AGPL: where users get the source
 WEBVIEW2_URL = 'https://developer.microsoft.com/microsoft-edge/webview2/'
 NO_PDFS = 'No PDF files found.'
@@ -34,13 +36,13 @@ _lib_lock = threading.Lock()
 
 
 def lib():
-    """(pymupdf, dedup_slides), imported on first use so that the window opens sooner."""
+    """(pymupdf, dedup), imported on first use so that the window opens sooner."""
     global _lib
     with _lib_lock:
         if _lib is None:
             import pymupdf
-            import dedup_slides
-            _lib = pymupdf, dedup_slides
+            from slideprint import dedup
+            _lib = pymupdf, dedup
     return _lib
 
 
@@ -51,17 +53,16 @@ class UserError(Exception):
         self.retry, self.pdf = retry, pdf
 
 
-def resource(name):
-    """A file shipped with the app (inside the .exe / .app when frozen by PyInstaller)."""
-    return os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__))), name)
+def resource(name, folder=HERE):
+    """A file shipped with the app: inside the .exe / .app when frozen by PyInstaller, else in
+    folder (this package, or ROOT)."""
+    return os.path.join(getattr(sys, '_MEIPASS', folder), name)
 
 
 def icon_file(name):
     """icon.ico / icon.icns / logo.png of the icon set: the one bundled into the app (ICONSET in
     build.bat / build.sh), or, run from source, icons/<SLIDEPRINT_ICONSET or layers>/."""
-    if hasattr(sys, '_MEIPASS'):
-        return resource(name)
-    return resource(os.path.join('icons', os.environ.get('SLIDEPRINT_ICONSET', 'layers'), name))
+    return resource(name, os.path.join(ROOT, 'icons', os.environ.get('SLIDEPRINT_ICONSET', 'layers')))
 
 
 def writable(path):
@@ -263,7 +264,7 @@ class Api:
         """SlidePrint's licence and the bundled software's, as one text file."""
         parts = [f'{APP} {VERSION}, Copyright (C) 2026 Jince Chen. Source code: {SOURCE_URL}\n']
         for name in ('THIRD_PARTY_NOTICES.txt', 'LICENSE'):
-            with open(resource(name), encoding='utf-8') as f:
+            with open(resource(name, ROOT), encoding='utf-8') as f:
                 parts.append(f.read())
         path = os.path.join(tempfile.gettempdir(), f'{APP} licences.txt')
         with open(path, 'w', encoding='utf-8') as f:

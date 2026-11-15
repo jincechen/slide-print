@@ -4,6 +4,8 @@ All notable changes to SlidePrint are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-15
+
 SlidePrint now also runs on macOS, with the same window and features as on Windows.
 
 ### Added
@@ -14,7 +16,7 @@ SlidePrint now also runs on macOS, with the same window and features as on Windo
 
 ### Changed
 
-- Download file names include the version, system and processor, for example `SlidePrint-1.1.0-windows-x86_64.exe`.
+- Download file names include the version, system and processor.
 - Run from source, the app starts with `python -m slideprint` and the command-line tool with `python -m slideprint.dedup`.
 
 ## [1.0.0] - 2026-10-06
@@ -27,5 +29,6 @@ First release: the Windows app.
 - A page is removed only when everything on it also appears on the next page; if a click replaces content rather than adding to it, both pages are kept.
 - Kept pages are copied as they are, so text stays selectable and bookmarks, links and image quality are preserved.
 
-[Unreleased]: https://github.com/jincechen/slide-print/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/jincechen/slide-print/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/jincechen/slide-print/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/jincechen/slide-print/releases/tag/v1.0.0

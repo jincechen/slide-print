@@ -1,8 +1,9 @@
-name: Build SlidePrint.exe
+name: Build SlidePrint
 
-# Tests and builds the Windows app on every push and pull request (download it from
-# the run's "Artifacts"), and publishes a GitHub Release with it when a version tag
-# is pushed:  git tag v1.0.0 && git push origin v1.0.0
+# Tests and builds the Windows and macOS apps on every push and pull request (download
+# them from the run's "Artifacts"). When a version tag is pushed, also publishes a GitHub
+# Release with them, its notes taken from that version's section of CHANGELOG.md:
+#   git tag v1.1.0 && git push origin v1.1.0      (the tag must match VERSION in slideprint_gui.py)
 on:
   push:
     branches: ['**']
@@ -14,7 +15,7 @@ permissions:
   contents: write          # to create the release on a tag
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -30,12 +31,94 @@ jobs:
         env:
           ICONSET: layers          # icon set to ship: a folder in icons/
         run: python -m PyInstaller --onefile --windowed --splash "icons/$env:ICONSET/splash.png" --manifest app.manifest --noconfirm --name SlidePrint --icon "icons/$env:ICONSET/icon.ico" --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "icons/$env:ICONSET/icon.ico;." --add-data "icons/$env:ICONSET/logo.png;." --add-data "ui.html;." slideprint_gui.py
+      - name: Name
+        shell: bash
+        run: mv dist/SlidePrint.exe "dist/SlidePrint-$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)-windows-x86_64.exe"
       - uses: actions/upload-artifact@v4
         with:
-          name: SlidePrint
-          path: dist/SlidePrint.exe
+          name: SlidePrint-windows-x86_64
+          path: dist/SlidePrint-*-windows-x86_64.exe
+          if-no-files-found: error
+
+  macos:
+    name: macos (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:                   # PyMuPDF has no universal2 wheels: one app per processor
+          - arch: arm64            # Apple silicon
+            runner: macos-15
+          - arch: x86_64           # Intel
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Test
+        run: python test_dedup_slides.py
+      - name: Build
+        env:
+          ICONSET: layers          # icon set to ship: a folder in icons/
+          # stop, rather than make an app that macOS says is damaged, if signing it (ad hoc) goes wrong
+          PYINSTALLER_STRICT_BUNDLE_CODESIGN_ERROR: '1'
+          PYINSTALLER_VERIFY_BUNDLE_SIGNATURE: '1'
+        run: python -m PyInstaller --noconfirm slideprint-macos.spec
+      - name: Disk image
+        run: |
+          dmg="dist/SlidePrint-$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)-macos-${{ matrix.arch }}.dmg"
+          mkdir -p build/dmg
+          ditto dist/SlidePrint.app build/dmg/SlidePrint.app
+          ln -s /Applications build/dmg/Applications
+          for try in 1 2 3 4 5; do       # hdiutil is now and then "busy" on the runners
+            hdiutil create -volname SlidePrint -srcfolder build/dmg -fs HFS+ -format UDZO -ov "$dmg" && break
+            [ $try -lt 5 ] && sleep 15 || exit 1
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SlidePrint-macos-${{ matrix.arch }}
+          path: dist/SlidePrint-*-macos-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" dist/SlidePrint.exe LICENSE THIRD_PARTY_NOTICES.txt --title "SlidePrint ${{ github.ref_name }}" --generate-notes
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n "s/^VERSION = '\(.*\)'$/\1/p" slideprint_gui.py)
+          [ "$TAG" = "v$version" ] || { echo "::error::Tag $TAG does not match VERSION $version in slideprint_gui.py"; exit 1; }
+          # notes: this version's section of CHANGELOG.md, then where to get what
+          awk -v h="## [$version]" 'index($0, h) == 1 {f = 1; next} /^## \[|^\[[^]]*\]: / {f = 0} f' CHANGELOG.md | sed '/./,$!d' > notes.md
+          grep -q . notes.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          get="$url/releases/download/$TAG/SlidePrint-$version"
+          cat >> notes.md <<EOF
+
+          ### Downloads
+
+          | System | File |
+          |---|---|
+          | Windows 10 or 11 | [SlidePrint-$version-windows-x86_64.exe]($get-windows-x86_64.exe) |
+          | macOS 11 or later, Apple silicon (M1 and later) | [SlidePrint-$version-macos-arm64.dmg]($get-macos-arm64.dmg) |
+          | macOS 11 or later, Intel | [SlidePrint-$version-macos-x86_64.dmg]($get-macos-x86_64.dmg) |
+
+          No installation is needed on Windows. On a Mac, open the \`.dmg\` and drag SlidePrint into Applications. The apps are not signed by Microsoft or notarised by Apple, so opening them the first time takes an extra step: see [The first time]($url#the-first-time). \`SHA256SUMS.txt\` lists the SHA-256 checksums of the files.
+
+          **Full changelog**: $(sed -n "s/^\[$version\]: //p" CHANGELOG.md)
+          EOF
+          (cd dist && sha256sum SlidePrint-* > SHA256SUMS.txt)
+          gh release create "$TAG" dist/* --title "SlidePrint $version" --notes-file notes.md

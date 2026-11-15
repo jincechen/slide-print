@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Draw SlidePrint's icon sets: icons/<set>/icon.ico (exe and window), logo.png (header
-in the window) and splash.png (the "Starting..." card shown while the exe unpacks).
+"""Draw SlidePrint's icon sets: icons/<set>/icon.ico (Windows exe and window), icon.icns
+(macOS app), logo.png (header in the window) and splash.png (the "Starting..." card shown
+while the Windows exe unpacks).
 
   python icons/make_assets.py            # all sets
   python icons/make_assets.py cards      # one set
 
 Sets: 'layers' (Font Awesome "layer-group" on a blue tile; the one shipped) and 'cards'
-(ghost slides behind a tilted front slide). Which set ships is chosen in build.bat / the workflow
-(ICONSET). Needs Pillow and PyMuPDF, and the Segoe UI fonts of Windows for the splash.
+(ghost slides behind a tilted front slide). Which set ships is chosen in build.bat / build.sh / the
+workflow (ICONSET). Needs Pillow and PyMuPDF, and the Segoe UI fonts of Windows for the splash
+(elsewhere splash.png is left as it is).
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 """
@@ -19,6 +21,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 N = 1024                                   # master size, scaled down for every use
 ICO_SIZES = [(n, n) for n in (16, 20, 24, 32, 40, 48, 64, 128, 256)]
+ICNS_SIZES = (32, 64, 128, 256, 512)       # and 1024, the master
+MAC_TILE = 824                             # macOS icon grid: an 824 px tile centred in 1024 px
+FONTS = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
 
 
 # --- 'cards' ---------------------------------------------------------------
@@ -114,6 +119,15 @@ def layers_icon():
 
 # --- shared ----------------------------------------------------------------
 
+def mac_icon(icon, tile):
+    """The icon shrunk onto the macOS grid (its tile, tile px wide in the master, becomes
+    MAC_TILE px), so that it is as big as other apps' icons in the Dock and the Finder."""
+    side = round(N * MAC_TILE / tile)
+    out = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+    out.alpha_composite(icon.resize((side, side), Image.LANCZOS), ((N - side) // 2, (N - side) // 2))
+    return out
+
+
 def splash(icon, icon_pt):
     """The start-up card, drawn at 2x (sharp on 200% screens). Windows splash transparency is
     a colour key, so the rounded corners are cut with all-or-nothing alpha."""
@@ -132,30 +146,34 @@ def splash(icon, icon_pt):
     ic = icon.resize((side, side), Image.LANCZOS)
     rgb.paste(ic, (26 * S + (48 - icon_pt) * S // 2, (H - side) // 2), ic)
     d = ImageDraw.Draw(rgb)
-    fonts = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
-    d.text((90 * S, H // 2 - 3 * S), 'SlidePrint', font=ImageFont.truetype(os.path.join(fonts, 'seguisb.ttf'), 21 * S),
+    d.text((90 * S, H // 2 - 3 * S), 'SlidePrint', font=ImageFont.truetype(os.path.join(FONTS, 'seguisb.ttf'), 21 * S),
            fill='#1b1d21', anchor='ls')
-    d.text((90 * S, H // 2 + 7 * S), 'Starting\u2026', font=ImageFont.truetype(os.path.join(fonts, 'segoeui.ttf'), 13 * S),
+    d.text((90 * S, H // 2 + 7 * S), 'Starting\u2026', font=ImageFont.truetype(os.path.join(FONTS, 'segoeui.ttf'), 13 * S),
            fill='#6b7280', anchor='lt')
     out = rgb.convert('RGBA')
     out.putalpha(card.getchannel('A').point(lambda a: 255 if a >= 128 else 0))
     return out
 
 
-SETS = {                                   # name: (drawing, icon size on the splash in pt)
-    'cards': (cards_icon, 56),
-    'layers': (layers_icon, 48),
+SETS = {                                   # name: (drawing, icon size on the splash in pt, tile width in px)
+    'cards': (cards_icon, 56, 880),
+    'layers': (layers_icon, 48, 960),
 }
 
 
 def build(name):
-    draw, splash_pt = SETS[name]
+    draw, splash_pt, tile = SETS[name]
     icon = draw()
     folder = os.path.join(HERE, name)
     os.makedirs(folder, exist_ok=True)
     icon.resize((256, 256), Image.LANCZOS).save(os.path.join(folder, 'icon.ico'), sizes=ICO_SIZES)
+    mac = mac_icon(icon, tile)
+    mac.save(os.path.join(folder, 'icon.icns'), append_images=[mac.resize((n, n), Image.LANCZOS) for n in ICNS_SIZES])
     icon.resize((132, 132), Image.LANCZOS).save(os.path.join(folder, 'logo.png'), optimize=True)   # 44 pt at 3x
-    splash(icon, splash_pt).save(os.path.join(folder, 'splash.png'), optimize=True)
+    if os.path.isfile(os.path.join(FONTS, 'segoeui.ttf')):
+        splash(icon, splash_pt).save(os.path.join(folder, 'splash.png'), optimize=True)
+    else:
+        print('splash.png left as it is: no Segoe UI fonts (Windows) in', FONTS)
     print('wrote', folder)
 
 

@@ -2,6 +2,7 @@
 build/
 dist/
 *.spec
+!slideprint-macos.spec
 __pycache__/
 *.pyc
 .pytest_cache/

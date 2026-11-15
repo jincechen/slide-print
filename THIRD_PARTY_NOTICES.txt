@@ -1,4 +1,5 @@
 SlidePrint bundles the following third-party software. Their licences follow.
+Items marked (Windows app only) or (macOS app only) are bundled in that app only.
 SlidePrint itself: Copyright (C) 2026 Jince Chen, GNU AGPL v3.0 or later (see LICENSE).
 
 ==============================================================================
@@ -42,7 +43,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
-pythonnet 3.2.0  (MIT)
+pythonnet 3.2.0  (MIT)  (Windows app only)
 https://pythonnet.github.io/
 
 MIT License
@@ -68,7 +69,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-clr_loader 0.3.1  (see below)
+clr_loader 0.3.1  (see below)  (Windows app only)
 https://github.com/pythonnet/clr-loader
 
 MIT License
@@ -94,7 +95,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-cffi 2.1.1  (MIT-0)
+cffi 2.1.1  (MIT-0)  (Windows app only)
 https://cffi.readthedocs.io/
 
 Except when otherwise stated (look for LICENSE files in directories or
@@ -120,7 +121,7 @@ documentation is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-pycparser 3.0  (BSD-3-Clause)
+pycparser 3.0  (BSD-3-Clause)  (Windows app only)
 https://github.com/eliben/pycparser
 
 pycparser -- A C parser in Python
@@ -150,6 +151,22 @@ GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
 HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT 
 OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+==============================================================================
+PyObjC 13.0: pyobjc-core, pyobjc-framework-Cocoa, -Quartz, -WebKit, -Security,
+-UniformTypeIdentifiers  (MIT)  (macOS app only)
+https://github.com/ronaldoussoren/pyobjc
+
+(This is the MIT license, note that libffi-src is a separate product with its own license)
+
+Copyright 2002, 2003 - Bill Bumgarner, Ronald Oussoren, Steve Majewski, Lele Gaifax, et.al.
+Copyright 2003-2025 - Ronald Oussoren
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 bottle 0.13.4  (MIT)

@@ -25,7 +25,7 @@
     background: var(--bg); color: var(--text);
     font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
     display: flex; flex-direction: column; padding: 22px 24px 14px; gap: 16px;
-    user-select: none; overflow: hidden;
+    -webkit-user-select: none; user-select: none; overflow: hidden;
   }
   svg.i { width: 1em; height: 1em; fill: currentColor; flex: none; }
 
@@ -144,6 +144,7 @@ document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('af
 
 const items = [];          // {path, name, pdf, state: waiting|working|ok|none|error, text, out, report, retry}
 let running = false, nextId = 1;
+let SHOW_IN_FOLDER = 'Show in folder';           // macOS: 'Show in Finder' (set from info())
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const api = () => window.pywebview.api;
 
@@ -186,7 +187,7 @@ const STATUS = {
 
 function actions(it) {
   const b = (act, ic, tip) => `<button class="icon-btn" data-act="${act}" data-id="${it.id}" title="${tip}">${icon(ic)}</button>`;
-  if (it.state === 'ok') return b('open', 'arrow-up-right-from-square', 'Open') + b('folder', 'folder-open', 'Show in folder');
+  if (it.state === 'ok') return b('open', 'arrow-up-right-from-square', 'Open') + b('folder', 'folder-open', SHOW_IN_FOLDER);
   if (it.state === 'error') return (it.report ? `<button class="ghost" data-act="copy" data-id="${it.id}">${icon('copy')}Copy details</button>` : '')
                                  + (it.retry ? b('retry', 'rotate-right', 'Try again') : '')
                                  + b('remove', 'xmark', 'Remove');
@@ -251,6 +252,7 @@ window.addEventListener('drop', e => { e.preventDefault(); dragDone(); }, true);
 window.addEventListener('pywebviewready', async () => {
   document.getElementById('choose').disabled = false;
   const info = await api().info();
+  if (info.mac) SHOW_IN_FOLDER = 'Show in Finder';
   document.getElementById('version').textContent = `Version ${info.version}`;
   if (info.files.length) addFiles(info.files);
   if (info.notice) toast(info.notice);
